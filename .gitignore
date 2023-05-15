@@ -1,2 +1,2 @@
-./notes/target
-./notes/Cargo.lock
+notes/target/*
+notes/Cargo.lock
