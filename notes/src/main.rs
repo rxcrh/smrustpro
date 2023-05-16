@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let conn = Connection::open(dirs::home_dir().unwrap().to_str().unwrap().to_owned() + "/notes.db")?;
     conn.execute(
-        "create table if not exists notes (
+        "CREATE TABLE IF NOT EXISTS notes (
             id integer primary key,
             body text not null unique
         )",
