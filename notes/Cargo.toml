@@ -1,5 +1,5 @@
 [package]
-name = "notes"
+name = "noted"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 rusqlite = { version = "0.26.1", features=["bundled"]}
+dirs = "5.0.1"
