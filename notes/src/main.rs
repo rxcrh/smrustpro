@@ -2,13 +2,32 @@ use rusqlite::{Connection, Result};
 use std::io;
 use dirs;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn try_to_delete(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    conn.execute("DELETE FROM notes WHERE id = (?1)", [msg])?;
+    Ok(())
+}
 
+fn try_to_update(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+
+    let msg_split = msg.split_once(" ").unwrap();
+    let id = msg_split.0;
+    let body = msg_split.1;
+
+    conn.execute("UPDATE notes SET body = (?1) WHERE id = (?2)", [body, id])?;
+    Ok(())
+}
+
+fn try_to_create(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    conn.execute("INSERT INTO notes (body) values (?1)", [msg])?;
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let conn = Connection::open(dirs::home_dir().unwrap().to_str().unwrap().to_owned() + "/notes.db")?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS notes (
             id integer primary key,
-            body text not null unique
+            body text not null
         )",
         [],
     )?;
@@ -32,24 +51,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         }
 
-        if cmd == "" {
-
+        if cmd == "" || cmd == "/exit" || cmd == "/quit" {
             running = false;
-
         } else if cmd == "/del" {
-
-            let id = msg;
-
-            conn.execute("DELETE FROM notes WHERE id = (?1)", [id])?;
-
+            try_to_delete(msg, &conn)?;
         } else if cmd == "/edit" {
-
-            let msg_split = msg.split_once(" ").unwrap();
-            let id = msg_split.0;
-            let body = msg_split.1;
-
-            conn.execute("UPDATE notes SET body = (?1) WHERE id = (?2)", [body, id])?;
-
+            try_to_update(msg, &conn)?;
         } else if cmd == "/list" {
 
             let mut stmt = conn.prepare("SELECT id, body FROM notes")?;
@@ -62,9 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
         } else {
-
-            conn.execute("INSERT INTO notes (body) values (?1)", [trimmed_body])?;
-
+            try_to_create(cmd, &conn)?;
         }
     }
 
