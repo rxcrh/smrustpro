@@ -1,9 +1,22 @@
 use rusqlite::{Connection, Result};
 use std::io;
 use dirs;
+use fallible_iterator::FallibleIterator;
 
 fn try_to_delete(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let mut stmt = conn.prepare("SELECT id FROM notes")?;
+    let rows = stmt.query(rusqlite::params![])?;
+
+    let mut element_with_id = rows.map(|row| row.get(0)).collect::<Vec<usize>>()?;
+    element_with_id.retain(|&x| x == msg.parse().unwrap());
+
+    if element_with_id.is_empty() {
+        println!{"Could not delete entry, because it doesn't exist"};
+        return Ok(());
+    }
+
     conn.execute("DELETE FROM notes WHERE id = (?1)", [msg])?;
+
     Ok(())
 }
 
@@ -14,6 +27,19 @@ fn try_to_update(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error:
     let body = msg_split.1;
 
     conn.execute("UPDATE notes SET body = (?1) WHERE id = (?2)", [body, id])?;
+    Ok(())
+}
+
+fn try_to_list(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let mut stmt = conn.prepare("SELECT id, body FROM notes")?;
+    let mut rows = stmt.query(rusqlite::params![])?;
+
+    while let Some(row) = rows.next()? {
+        let id: i32 = row.get(0)?;
+        let body: String = row.get(1)?;
+        println!("{} {}", id, body.to_string());
+    }
+
     Ok(())
 }
 
@@ -53,21 +79,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if cmd == "" || cmd == "/exit" || cmd == "/quit" {
             running = false;
-        } else if cmd == "/del" {
+        } else if cmd == "/del" || cmd == "/d" {
             try_to_delete(msg, &conn)?;
-        } else if cmd == "/edit" {
+        } else if cmd == "/edit" || cmd == "/e" {
             try_to_update(msg, &conn)?;
-        } else if cmd == "/list" {
-
-            let mut stmt = conn.prepare("SELECT id, body FROM notes")?;
-            let mut rows = stmt.query(rusqlite::params![])?;
-
-            while let Some(row) = rows.next()? {
-                let id: i32 = row.get(0)?;
-                let body: String = row.get(1)?;
-                println!("{} {}", id, body.to_string());
-            }
-
+        } else if cmd == "/list" || cmd == "/l" {
+            try_to_list(&conn)?;
         } else {
             try_to_create(cmd, &conn)?;
         }
