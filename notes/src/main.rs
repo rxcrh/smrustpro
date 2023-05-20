@@ -3,15 +3,40 @@ use std::io;
 use dirs;
 use fallible_iterator::FallibleIterator;
 
-fn try_to_delete(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+
+fn id_exists(id: &str, conn: &Connection) -> Result<bool, Box<dyn std::error::Error>> {
+    let mut ids = get_ids(&conn)?;
+    ids.retain(|&x| x == id.parse().unwrap());
+
+    if ids.is_empty() {
+        return Ok(false);
+    }
+
+    Ok(true)
+}
+
+fn get_ids(conn: &Connection) -> Result<Vec<usize>, Box<dyn std::error::Error>> {
+
     let mut stmt = conn.prepare("SELECT id FROM notes")?;
     let rows = stmt.query(rusqlite::params![])?;
 
-    let mut element_with_id = rows.map(|row| row.get(0)).collect::<Vec<usize>>()?;
-    element_with_id.retain(|&x| x == msg.parse().unwrap());
+    let ids = rows.map(|row| row.get(0)).collect::<Vec<usize>>()?;
+    Ok(ids)
+}
 
-    if element_with_id.is_empty() {
-        println!{"Could not delete entry, because it doesn't exist"};
+fn get_entrys(conn: &Connection) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+
+    let mut stmt = conn.prepare("SELECT body FROM notes")?;
+    let rows = stmt.query(rusqlite::params![])?;
+
+    let entrys = rows.map(|row| row.get(0)).collect::<Vec<String>>()?;
+    Ok(entrys)
+}
+
+fn try_to_delete(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+
+    if !id_exists(msg, &conn)? {
+        println!("Could not delete entry, because it doesn't exist!");
         return Ok(());
     }
 
@@ -22,22 +47,33 @@ fn try_to_delete(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error:
 
 fn try_to_update(msg: &str, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
 
-    let msg_split = msg.split_once(" ").unwrap();
+    let msg_split = match msg.split_once(" ") {
+        Some(msg_split) => msg_split,
+        None => {
+            println!("Your entry is not valid!");
+            return Ok(());
+        }
+    };
+
     let id = msg_split.0;
     let body = msg_split.1;
+
+    if !id_exists(id, &conn)? {
+        println!("The given id does not exist!");
+        return Ok(());
+    }
 
     conn.execute("UPDATE notes SET body = (?1) WHERE id = (?2)", [body, id])?;
     Ok(())
 }
 
 fn try_to_list(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
-    let mut stmt = conn.prepare("SELECT id, body FROM notes")?;
-    let mut rows = stmt.query(rusqlite::params![])?;
 
-    while let Some(row) = rows.next()? {
-        let id: i32 = row.get(0)?;
-        let body: String = row.get(1)?;
-        println!("{} {}", id, body.to_string());
+    let ids = get_ids(&conn)?;
+    let bodys = get_entrys(&conn)?;
+
+    for (id, entry) in ids.iter().zip(bodys) {
+        println!("{}: {}", id, entry);
     }
 
     Ok(())
