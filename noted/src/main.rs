@@ -94,6 +94,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         [],
     )?;
 
+    println!("/help for all the commands");
+
     let mut running = true;
     while running == true {
 
@@ -121,6 +123,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             try_to_update(msg, &conn)?;
         } else if cmd == "/list" || cmd == "/l" {
             try_to_list(&conn)?;
+        } else if cmd == "/help" || cmd == "/h" {
+            println!("\t /del [entry] for deleting an entry");
+            println!("\t /edit [id] [entry] for editing an entry");
+            println!("\t /list for listing all entrys");
         } else {
             try_to_create(cmd, &conn)?;
         }
