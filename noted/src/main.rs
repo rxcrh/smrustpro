@@ -129,7 +129,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("\t /list for listing all entrys");
             println!("\t Hint: /d, /e and /l also work");
         } else {
-            try_to_create(cmd, &conn)?;
+            try_to_create(trimmed_body, &conn)?;
         }
     }
 
