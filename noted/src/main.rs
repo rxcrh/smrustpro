@@ -1,5 +1,5 @@
 use rusqlite::{Connection, Result};
-use std::io;
+use std::{io, println};
 use dirs;
 use fallible_iterator::FallibleIterator;
 
@@ -127,6 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("\t /del [entry] for deleting an entry");
             println!("\t /edit [id] [entry] for editing an entry");
             println!("\t /list for listing all entrys");
+            println!("\t Hint: /d, /e and /l also work");
         } else {
             try_to_create(cmd, &conn)?;
         }
