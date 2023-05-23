@@ -128,6 +128,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("\t /edit [id] [entry] for editing an entry");
             println!("\t /list for listing all entrys");
             println!("\t Hint: /d, /e and /l also work");
+        } else if cmd.starts_with("/") {
+            println!("Not a valid command. Please try again");
         } else {
             try_to_create(trimmed_body, &conn)?;
         }
