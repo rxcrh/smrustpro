@@ -25,7 +25,7 @@ impl eframe::App for Content {
             });
             ScrollArea::vertical()
                 .auto_shrink([false; 2])
-                .max_height(ui.available_height() - 30.)
+                .max_height(ui.available_height() - 25.)
                 .show(ui, |ui| {
                     ui.label(&self.text);
                 });
