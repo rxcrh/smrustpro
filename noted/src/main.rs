@@ -3,7 +3,6 @@ use std::{io, println};
 use dirs;
 use fallible_iterator::FallibleIterator;
 
-
 fn id_exists(id: &str, conn: &Connection) -> Result<bool, Box<dyn std::error::Error>> {
     let mut ids = get_ids(&conn)?;
     ids.retain(|&x| x == id.parse().unwrap());
