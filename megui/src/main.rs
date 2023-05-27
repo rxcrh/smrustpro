@@ -21,9 +21,13 @@ struct Content {
 impl Default for Content {
     fn default() -> Self {
         Self {tiers: vec![
-            vec!["a".to_owned()],
-            vec!["b".to_owned()],
-            vec!["c".to_owned()],
+            vec!["S".to_owned()],
+            vec!["A".to_owned()],
+            vec!["B".to_owned()],
+            vec!["C".to_owned()],
+            vec!["D".to_owned()],
+            vec!["E".to_owned()],
+            vec!["F".to_owned()],
 
         ],
         image_paths: vec![],
