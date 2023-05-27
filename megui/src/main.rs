@@ -24,9 +24,11 @@ impl eframe::App for Content {
         egui::CentralPanel::default().show(ctx, |ui| {
             let tier_size: f32 = 0.05 * ui.available_width();
 
+            let assets = Path::new("assets/");
+
             let texture = ui.ctx().load_texture(
                 "texture",
-                load_image_from_path(Path::new("src/assets/nand_placeholder.png")).unwrap(),
+                load_image_from_path(Path::new("assets/nand_placeholder.png")).unwrap(),
                 Default::default(),
             );
 
