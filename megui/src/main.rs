@@ -27,8 +27,6 @@ impl Default for Content {
             vec!["C".to_owned()],
             vec!["D".to_owned()],
             vec!["E".to_owned()],
-            vec!["F".to_owned()],
-
         ],
         image_paths: vec![],
         }
@@ -90,6 +88,7 @@ impl eframe::App for Content {
                                 Label::new(tier.get(0).unwrap()),
                             );
                             for _entry in 0..5 { //tier.iter() {
+                                // [TODO] make it a list that can be added to
                                 ui.label("o");
                             }
                             if ui.button("-").clicked() {
