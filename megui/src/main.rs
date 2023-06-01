@@ -82,6 +82,7 @@ impl eframe::App for Content {
                 .auto_shrink([false; 2])
                 .max_height(ui.available_height())
                 .show(ui, |ui| {
+                    let mut idx = 0;
                     for tier in self.tiers.clone().iter() {
                         ui.horizontal(|ui| {
                             ui.add_sized(
@@ -92,9 +93,10 @@ impl eframe::App for Content {
                                 ui.label("o");
                             }
                             if ui.button("-").clicked() {
-                                self.tiers.pop();
+                                self.tiers.remove(idx);
                             }
                         });
+                        idx += 1;
                     }
 
                     ui.horizontal(|ui| {
