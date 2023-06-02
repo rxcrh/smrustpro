@@ -1,2 +1,3 @@
-## Conways - Game of Life
-Implemented in Rust as a CLI program.
+## Conway's Game of Life 
+
+Implemented in Rust with a CLI.
