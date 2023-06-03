@@ -57,11 +57,22 @@ impl World {
     }
 
     fn next_day(&mut self) {
-        if self.alive.is_empty() {
-            self.alive.push((4, 4));
-        } else {
-            self.alive.clear();
+        //if self.alive.is_empty() {
+        //    self.alive.push((4,4));
+        //} else {
+        //    self.alive.clear();
+        //}
+        
+        for life in self.alive.iter_mut() {
+            life.0 += 1;
+            life.1 += 1;
         }
+        
+    }
+
+    fn remove_not_in_world(&mut self) {
+        self.alive
+            .retain(|&x| x.0 < self.height && x.1 < self.width);
     }
 }
 
@@ -111,7 +122,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         if should_play == true {
-            //world.next_day();
+            world.next_day();
+            world.remove_not_in_world();
+
             terminal.draw(|f| {
                 let size = f.size();
 
@@ -119,8 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let viewport_width = size.width - 2;
 
                 if size.width < viewport_width || size.height < viewport_height {
-                   todo!(); 
-                } 
+                    todo!();
+                }
 
                 let vertical_remainder = viewport_height % world.height;
                 let horizontal_remainder = viewport_width % world.width;
@@ -133,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let chunks = Layout::default()
                     .vertical_margin(vertical_remainder / 2)
                     .horizontal_margin(horizontal_remainder / 2)
-                    .constraints([Constraint::Length(size.width-2), Constraint::Min(2)].as_ref())
+                    .constraints([Constraint::Length(size.width - 2), Constraint::Min(2)].as_ref())
                     .split(size);
 
                 let block = Paragraph::new(world_grided)
@@ -144,7 +157,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .wrap(Wrap { trim: true });
 
-                f.render_widget(block, chunks[0]);
+                let dead_text = vec![
+                    vec![Spans::default(); (viewport_height - vertical_remainder) as usize / 2 as usize ],
+                    vec![Spans::from(vec![
+                        Span::raw("Everything is dead!"),
+                    ])]
+                ].into_iter().flatten().collect::<Vec<Spans>>();
+
+                let end_screen = Paragraph::new(dead_text)
+                    .block(
+                        Block::default()
+                            .title("Conways - Game of Life")
+                            .borders(Borders::ALL),
+                    )
+                    .alignment(Alignment::Center)
+                    .wrap(Wrap { trim: true });
+
+                if !world.alive.is_empty() {
+                    f.render_widget(block, chunks[0]);
+                } else {
+                    f.render_widget(end_screen, chunks[0]);
+                }
             })?;
         }
 
