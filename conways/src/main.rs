@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use tui::{
     backend::CrosstermBackend,
     layout::*,
-    style::{Color, Modifier, Style},
+    //style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, Paragraph, Wrap},
     Terminal,
@@ -52,6 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.clear()?;
 
     let mut should_play = true;
+    let mut i = 0;
 
     loop {
         if should_play == true {
@@ -64,11 +65,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let text = vec![
                     Spans::from(vec![
-                        Span::raw("First"),
-                        Span::styled("line", Style::default().add_modifier(Modifier::ITALIC)),
-                        Span::raw("."),
-                    ]),
-                    Spans::from(Span::styled("Second line", Style::default().fg(Color::Red))),
+                        Span::raw("#")
+                    ]); i
                 ];
                 let block = Paragraph::new(text)
                     .block(Block::default().title("Conways - Game of Life").borders(Borders::ALL))
@@ -77,9 +75,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 f.render_widget(block, chunks[0]);
             })?;
-        } else {
-            terminal.clear()?;
-        }
+            i += 1;
+        } 
+
+
         match rx.recv()? {
             Event::Input(event) => match event.code {
                 KeyCode::Char('q') => {
