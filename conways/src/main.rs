@@ -14,6 +14,11 @@ use tui::{
     Terminal,
 };
 
+enum Event<I> {
+    Input(I),
+    Tick,
+}
+
 struct World {
     width: u16,
     height: u16,
@@ -57,17 +62,25 @@ impl World {
     }
 
     fn next_day(&mut self) {
-        //if self.alive.is_empty() {
-        //    self.alive.push((4,4));
-        //} else {
-        //    self.alive.clear();
-        //}
-        
-        for life in self.alive.iter_mut() {
-            life.0 += 1;
-            life.1 += 1;
+        let alive_as_matrix = vec![vec![0; self.width as usize]; self.height as usize];
+
+        for row in 0..self.height {
+            for col in 0..self.width {
+                let row_idx = row as usize;
+                let col_idx = col as usize; 
+
+                if alive_as_matrix[row_idx][col_idx] == 0
+                    && get_num_neighbours(&alive_as_matrix, row, col) == 3
+                {
+                    self.alive.push((row, col));
+                } else if alive_as_matrix[row_idx][col_idx] == 1
+                    && get_num_neighbours(&alive_as_matrix, row, col) != 2
+                    && get_num_neighbours(&alive_as_matrix, row, col) != 3
+                {
+                    self.alive.retain(|&x| x.0 != row && x.1 != col);
+                }
+            }
         }
-        
     }
 
     fn remove_not_in_world(&mut self) {
@@ -76,9 +89,8 @@ impl World {
     }
 }
 
-enum Event<I> {
-    Input(I),
-    Tick,
+fn get_num_neighbours(m: &Vec<Vec<u32>>, row: u16, col: u16) -> u32 {
+    2
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -158,11 +170,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .wrap(Wrap { trim: true });
 
                 let dead_text = vec![
-                    vec![Spans::default(); (viewport_height - vertical_remainder) as usize / 2 as usize ],
-                    vec![Spans::from(vec![
-                        Span::raw("Everything is dead!"),
-                    ])]
-                ].into_iter().flatten().collect::<Vec<Spans>>();
+                    vec![
+                        Spans::default();
+                        (viewport_height - vertical_remainder) as usize / 2 as usize
+                    ],
+                    vec![Spans::from(vec![Span::raw("Everything is dead!")])],
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<Spans>>();
 
                 let end_screen = Paragraph::new(dead_text)
                     .block(
