@@ -9,11 +9,65 @@ use std::time::{Duration, Instant};
 use tui::{
     backend::CrosstermBackend,
     layout::*,
-    //style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, Paragraph, Wrap},
     Terminal,
 };
+
+struct World {
+    width: u64,
+    height: u64,
+    alive: Vec<(u64, u64)>,
+}
+
+impl World {
+    fn get_grid(&self, height: u16, width: u16) -> Vec<Spans> {
+        let mut spans = vec![];
+
+        // accounting for borders
+        let height = height - 2;
+        let width = width - 2;
+
+        let row_height = height / self.height as u16;
+        let col_width = width / self.width as u16;
+
+        for row in 0..self.height {
+            spans.push(vec![
+                Spans::from(
+                    vec![{
+                        let mut cols = vec![];
+                        for col in 0..self.width {
+                            cols.push(vec![
+                                {
+                                    if self.alive.iter().any(|&x| x == (row, col)) {
+                                        Span::raw("#")
+                                    } else {
+                                        Span::raw(".")
+                                    }
+                                };
+                                col_width as usize
+                            ]);
+                        }
+                        cols.into_iter().flatten().collect::<Vec<Span>>()
+                    }]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<Span>>()
+                );
+                row_height as usize
+            ])
+        }
+        return spans.into_iter().flatten().collect();
+    }
+
+    fn next_day(&mut self) {
+        if self.alive.is_empty() {
+            self.alive.push((4,4));
+        } else {
+            self.alive.clear();
+        }
+    }
+}
 
 enum Event<I> {
     Input(I),
@@ -52,10 +106,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.clear()?;
 
     let mut should_play = true;
-    let mut i = 0;
+    #[allow(unused_mut)]
+    let mut world = World {
+        width: 30,
+        height: 20,
+        alive: vec![(0,0), (10, 10), (4, 5), (19, 29)],
+    };
 
     loop {
         if should_play == true {
+            //world.next_day();
             terminal.draw(|f| {
                 let size = f.size();
                 let chunks = Layout::default()
@@ -63,21 +123,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .constraints([Constraint::Length(size.width), Constraint::Min(0)].as_ref())
                     .split(size);
 
-                let text = vec![
-                    Spans::from(vec![
-                        Span::raw("#")
-                    ]); i
-                ];
-                let block = Paragraph::new(text)
-                    .block(Block::default().title("Conways - Game of Life").borders(Borders::ALL))
-                    .alignment(Alignment::Center)
+                let world = world.get_grid(size.height, size.width);
+
+                let block = Paragraph::new(world)
+                    .block(
+                        Block::default()
+                            .title("Conways - Game of Life")
+                            .borders(Borders::ALL),
+                    )
                     .wrap(Wrap { trim: true });
 
                 f.render_widget(block, chunks[0]);
             })?;
-            i += 1;
-        } 
-
+        }
 
         match rx.recv()? {
             Event::Input(event) => match event.code {
