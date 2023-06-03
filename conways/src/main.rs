@@ -15,18 +15,14 @@ use tui::{
 };
 
 struct World {
-    width: u64,
-    height: u64,
-    alive: Vec<(u64, u64)>,
+    width: u16,
+    height: u16,
+    alive: Vec<(u16, u16)>,
 }
 
 impl World {
     fn get_grid(&self, height: u16, width: u16) -> Vec<Spans> {
         let mut spans = vec![];
-
-        // accounting for borders
-        let height = height - 2;
-        let width = width - 2;
 
         let row_height = height / self.height as u16;
         let col_width = width / self.width as u16;
@@ -62,7 +58,7 @@ impl World {
 
     fn next_day(&mut self) {
         if self.alive.is_empty() {
-            self.alive.push((4,4));
+            self.alive.push((4, 4));
         } else {
             self.alive.clear();
         }
@@ -110,7 +106,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut world = World {
         width: 30,
         height: 20,
-        alive: vec![(0,0), (10, 10), (4, 5), (19, 29)],
+        alive: vec![(0, 0), (10, 10), (4, 5), (19, 29)],
     };
 
     loop {
@@ -118,14 +114,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             //world.next_day();
             terminal.draw(|f| {
                 let size = f.size();
+
+                let viewport_height = size.height - 2;
+                let viewport_width = size.width - 2;
+
+                if size.width < viewport_width || size.height < viewport_height {
+                   todo!(); 
+                } 
+
+                let vertical_remainder = viewport_height % world.height;
+                let horizontal_remainder = viewport_width % world.width;
+
+                let world_grided = world.get_grid(
+                    viewport_height - vertical_remainder,
+                    viewport_width - horizontal_remainder,
+                );
+
                 let chunks = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints([Constraint::Length(size.width), Constraint::Min(0)].as_ref())
+                    .vertical_margin(vertical_remainder / 2)
+                    .horizontal_margin(horizontal_remainder / 2)
+                    .constraints([Constraint::Length(size.width-2), Constraint::Min(2)].as_ref())
                     .split(size);
 
-                let world = world.get_grid(size.height, size.width);
-
-                let block = Paragraph::new(world)
+                let block = Paragraph::new(world_grided)
                     .block(
                         Block::default()
                             .title("Conways - Game of Life")
