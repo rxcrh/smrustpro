@@ -12,7 +12,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tui::{
     backend::CrosstermBackend,
-    layout::*,
     style::*,
     text::{Span, Spans},
     widgets::{Block, Borders, Paragraph, Wrap},
@@ -90,23 +89,18 @@ impl World {
     }
 
     fn next_day(&mut self) {
-        let mut alive_as_matrix = vec![vec![0; self.width as usize]; self.height as usize];
-        for alive in self.alive.iter() {
-            alive_as_matrix[alive.0 as usize][alive.1 as usize] = 1;
-        }
+        let alive_as_matrix = self.get_alives_as_matrix_with_puffer();
 
-        for row in 0..self.height {
-            for col in 0..self.width {
+        for row in 1..self.height+1 {
+            for col in 1..self.width+1 {
                 let row = row as usize;
                 let col = col as usize;
 
-                if alive_as_matrix[row][col] == 0
-                    && get_num_neighbours(&alive_as_matrix, row, col) == 3
-                {
+                if alive_as_matrix[row][col] == 0 && self.get_num_neighbours(&alive_as_matrix, row, col) == 3 {
                     self.alive.push((row as u16, col as u16));
                 } else if alive_as_matrix[row][col] == 1
-                    && get_num_neighbours(&alive_as_matrix, row, col) != 2
-                    && get_num_neighbours(&alive_as_matrix, row, col) != 3
+                    && self.get_num_neighbours(&alive_as_matrix, row, col) != 2
+                    && self.get_num_neighbours(&alive_as_matrix, row, col) != 3
                 {
                     self.alive
                         .retain(|&x| x.0 != row as u16 || x.1 != col as u16);
@@ -115,43 +109,48 @@ impl World {
         }
     }
 
+    fn get_num_neighbours(&self, m: &Vec<Vec<u32>>, row: usize, col: usize) -> u16 {
+        let mut num_neighbours = 0;
+
+        if m[row - 1][col - 1] == 1 {
+            num_neighbours += 1
+        }
+        if m[row - 1][col] == 1 {
+            num_neighbours += 1
+        }
+        if m[row - 1][col + 1] == 1 {
+            num_neighbours += 1
+        }
+        if m[row][col - 1] == 1 {
+            num_neighbours += 1
+        }
+        if m[row][col + 1] == 1 {
+            num_neighbours += 1
+        }
+        if m[row + 1][col - 1] == 1 {
+            num_neighbours += 1
+        }
+        if m[row + 1][col] == 1 {
+            num_neighbours += 1
+        }
+        if m[row + 1][col + 1] == 1 {
+            num_neighbours += 1
+        }
+        num_neighbours
+    }
+
+    fn get_alives_as_matrix_with_puffer(&self) -> Vec<Vec<u32>> {
+        let mut alive_as_matrix = vec![vec![0; self.width as usize + 2]; self.height as usize + 2];
+        for alive in self.alive.iter() {
+            alive_as_matrix[alive.0 as usize][alive.1 as usize] = 1;
+        }
+        alive_as_matrix
+    }
+
     fn remove_not_in_world(&mut self) {
         self.alive
             .retain(|&x| x.0 < self.height && x.1 < self.width);
     }
-}
-
-fn get_num_neighbours(m: &Vec<Vec<u32>>, i: usize, j: usize) -> u32 {
-    let mut num_neighbours = 0;
-    if is_in_bounds(i as i32 - 1, j as i32 - 1, m.len(), m[0].len()) && m[i - 1][j - 1] == 1 {
-        num_neighbours += 1
-    }
-    if is_in_bounds(i as i32 - 1, j as i32, m.len(), m[0].len()) && m[i - 1][j] == 1 {
-        num_neighbours += 1
-    }
-    if is_in_bounds(i as i32 - 1, j as i32 + 1, m.len(), m[0].len()) && m[i - 1][j + 1] == 1 {
-        num_neighbours += 1
-    }
-    if is_in_bounds(i as i32, j as i32 - 1, m.len(), m[0].len()) && m[i][j - 1] == 1 {
-        num_neighbours += 1
-    }
-    if is_in_bounds(i as i32, j as i32 + 1, m.len(), m[0].len()) && m[i][j + 1] == 1 {
-        num_neighbours += 1
-    }
-    if is_in_bounds(i as i32 + 1, j as i32 - 1, m.len(), m[0].len()) && m[i + 1][j - 1] == 1 {
-        num_neighbours += 1
-    }
-    if is_in_bounds(i as i32 + 1, j as i32, m.len(), m[0].len()) && m[i + 1][j] == 1 {
-        num_neighbours += 1
-    }
-    if is_in_bounds(i as i32 + 1, j as i32 + 1, m.len(), m[0].len()) && m[i + 1][j + 1] == 1 {
-        num_neighbours += 1
-    }
-    num_neighbours
-}
-
-fn is_in_bounds(i: i32, j: i32, i_len: usize, j_len: usize) -> bool {
-    i >= 0 && i < i_len as i32 && j >= 0 && j < j_len as i32
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -211,7 +210,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|f| {
             size = f.size();
 
-            let world_grided = world.get_grid(&mode, size.height-2, size.width-2);
+            let world_grided = world.get_grid(&mode, size.height - 2, size.width - 2);
 
             let world_block = Paragraph::new(world_grided)
                 .block(
@@ -258,7 +257,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 KeyCode::Char('1') => {
                     should_play = true;
                     mode = Mode::Play;
-                    world = World::pulsar();
+                    world.alive = World::pulsar().alive;
                 }
                 _ => {}
             },
