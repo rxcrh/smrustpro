@@ -29,6 +29,7 @@ impl Default for World {
     fn default() -> Self {
         Self {
             // Mid Point: (10, 20)
+            // [TODO] find a better way to add new automata
             width: 41,
             height: 21,
             alive: vec![
