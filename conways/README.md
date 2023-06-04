@@ -1,3 +1,6 @@
 ## Conway's Game of Life 
 
-Implemented in Rust with a CLI.
+Implemented Conways Game of Life in Rust with using a TUI.
+
+### Todo
+ - [ ] add database for storing new automata
