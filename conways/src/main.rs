@@ -1,5 +1,9 @@
 use crossterm::{
-    event::{self, Event as CEvent, KeyCode},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event as CEvent, KeyCode, MouseButton,
+        MouseEvent, MouseEventKind,
+    },
+    execute,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 use std::io;
@@ -15,24 +19,30 @@ use tui::{
     Terminal,
 };
 
-enum Event<I> {
-    Input(I),
+enum Event<Key, Pos> {
+    KeyInput(Key),
+    MouseInput(Pos),
     Tick,
+}
+
+enum Mode {
+    Insert,
+    Play,
 }
 
 struct World {
     width: u16,
     height: u16,
+    input: Vec<(u16, u16)>,
     alive: Vec<(u16, u16)>,
 }
 
 impl Default for World {
     fn default() -> Self {
         Self {
-            // Mid Point: (10, 20)
-            // [TODO] find a better way to add new automata
             width: 41,
             height: 21,
+            input: vec![(9, 9)],
             alive: vec![
                 (9, 18),
                 (9, 17),
@@ -88,6 +98,27 @@ impl Default for World {
 }
 
 impl World {
+    fn get_input_grid(&self) -> Vec<Spans> {
+        let mut spans = vec![];
+
+        for row in 0..self.height - 2 {
+            spans.push(vec![Spans::from({
+                let mut cols = vec![];
+                for col in 0..self.width - 2 {
+                    cols.push({
+                        if self.input.iter().any(|&x| x == (row, col)) {
+                            Span::styled("█", Style::default().fg(Color::Green))
+                        } else {
+                            Span::styled(".", Style::default())
+                        }
+                    });
+                }
+                cols
+            })])
+        }
+        return spans.into_iter().flatten().collect();
+    }
+
     fn get_grid(&self, height: u16, width: u16) -> Vec<Spans> {
         let mut spans = vec![];
 
@@ -103,7 +134,7 @@ impl World {
                             cols.push(vec![
                                 {
                                     if self.alive.iter().any(|&x| x == (row, col)) {
-                                        Span::raw("█")
+                                        Span::styled("█", Style::default().fg(Color::Green))
                                     } else {
                                         Span::styled(
                                             "█",
@@ -195,7 +226,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode().expect("can run in raw mode");
 
     let (tx, rx) = mpsc::channel();
-    let tick_rate = Duration::from_millis(500);
+    let tick_rate = Duration::from_millis(2000);
     thread::spawn(move || {
         let mut last_tick = Instant::now();
         loop {
@@ -204,9 +235,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .unwrap_or_else(|| Duration::from_secs(0));
 
             if event::poll(timeout).expect("poll works") {
-                if let CEvent::Key(key) = event::read().expect("can read events") {
-                    tx.send(Event::Input(key)).expect("can send events");
-                }
+                match event::read().expect("can read events") {
+                    CEvent::Key(key) => tx.send(Event::KeyInput(key)).expect("can send keyevents"),
+                    CEvent::Mouse(MouseEvent {
+                        kind, column, row, ..
+                    }) => match kind {
+                        MouseEventKind::Down(MouseButton::Left) => tx
+                            .send(Event::MouseInput((row, column)))
+                            .expect("can send mouseevents"),
+                        _ => {}
+                    },
+                    _ => {}
+                };
             }
 
             if last_tick.elapsed() >= tick_rate {
@@ -217,78 +257,114 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let stdout = io::stdout();
+    let mut stdout = io::stdout();
+
+    execute!(stdout, EnableMouseCapture)?;
+
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
     let mut should_play = true;
+    let mut mode = Mode::Insert;
+    let mut view = Rect::default();
     let mut world = World::default();
 
     loop {
-        if should_play == true {
-            terminal.draw(|f| {
-                let size = f.size();
+        world.next_day();
+        world.remove_not_in_world();
+        match mode {
+            Mode::Play => {
+                if should_play == true {
+                    terminal.draw(|f| {
+                        let size = f.size();
 
-                let viewport_height = size.height - 2;
-                let viewport_width = size.width - 2;
+                        let viewport_height = size.height - 2;
+                        let viewport_width = size.width - 2;
 
-                if size.width < viewport_width || size.height < viewport_height {
-                    todo!();
+                        let vertical_remainder = viewport_height % world.height;
+                        let horizontal_remainder = viewport_width % world.width;
+
+                        let world_grided = world.get_grid(
+                            viewport_height - vertical_remainder,
+                            viewport_width - horizontal_remainder,
+                        );
+
+                        let chunks = Layout::default()
+                            .vertical_margin(vertical_remainder / 2)
+                            .horizontal_margin(horizontal_remainder / 2)
+                            .constraints(
+                                [Constraint::Length(size.width - 2), Constraint::Min(2)].as_ref(),
+                            )
+                            .split(size);
+
+                        let world_block = Paragraph::new(world_grided)
+                            .block(
+                                Block::default()
+                                    .title("Conways - Game of Life")
+                                    .borders(Borders::ALL),
+                            )
+                            .wrap(Wrap { trim: true });
+
+                        let dead_text = vec![
+                            vec![
+                                Spans::default();
+                                (viewport_height - vertical_remainder) as usize / 2 as usize
+                            ],
+                            vec![Spans::from(vec![Span::raw("Everything is dead!")])],
+                        ]
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<Spans>>();
+
+                        let end_screen = Paragraph::new(dead_text)
+                            .block(
+                                Block::default()
+                                    .title("Conways - Game of Life")
+                                    .borders(Borders::ALL),
+                            )
+                            .alignment(Alignment::Center)
+                            .wrap(Wrap { trim: true });
+
+                        if !world.alive.is_empty() {
+                            view = chunks[0];
+                            f.render_widget(world_block, chunks[0]);
+                        } else {
+                            view = chunks[0];
+                            f.render_widget(end_screen, chunks[0]);
+                        }
+                    })?;
                 }
+            }
 
-                let vertical_remainder = viewport_height % world.height;
-                let horizontal_remainder = viewport_width % world.width;
+            Mode::Insert => {
+                terminal.draw(|f| {
+                    let size = f.size();
 
-                let world_grided = world.get_grid(
-                    viewport_height - vertical_remainder,
-                    viewport_width - horizontal_remainder,
-                );
+                    let grided_input = world.get_input_grid();
 
-                let chunks = Layout::default()
-                    .vertical_margin(vertical_remainder / 2)
-                    .horizontal_margin(horizontal_remainder / 2)
-                    .constraints([Constraint::Length(size.width - 2), Constraint::Min(2)].as_ref())
-                    .split(size);
+                    let chunks = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .vertical_margin(size.height / 2 - world.height / 2)
+                        .horizontal_margin(size.width / 2 - world.width / 2)
+                        .constraints([Constraint::Length(world.width)].as_ref())
+                        .split(size);
 
-                let block = Paragraph::new(world_grided)
-                    .block(
-                        Block::default()
-                            .title("Conways - Game of Life")
-                            .borders(Borders::ALL),
-                    )
-                    .wrap(Wrap { trim: true });
-
-                let dead_text = vec![
-                    vec![
-                        Spans::default();
-                        (viewport_height - vertical_remainder) as usize / 2 as usize
-                    ],
-                    vec![Spans::from(vec![Span::raw("Everything is dead!")])],
-                ]
-                .into_iter()
-                .flatten()
-                .collect::<Vec<Spans>>();
-
-                let end_screen = Paragraph::new(dead_text)
-                    .block(
-                        Block::default()
-                            .title("Conways - Game of Life")
-                            .borders(Borders::ALL),
-                    )
-                    .alignment(Alignment::Center)
-                    .wrap(Wrap { trim: true });
-
-                if !world.alive.is_empty() {
-                    f.render_widget(block, chunks[0]);
-                } else {
-                    f.render_widget(end_screen, chunks[0]);
-                }
-            })?;
+                    let input_block = Paragraph::new(grided_input)
+                        .block(
+                            Block::default()
+                                .title("Editor - Game of Life")
+                                .borders(Borders::ALL),
+                        )
+                        .wrap(Wrap { trim: true });
+                    view = chunks[0];
+                    f.render_widget(input_block, chunks[0]);
+                })?;
+            }
         }
 
         match rx.recv()? {
-            Event::Input(event) => match event.code {
+            Event::KeyInput(event) => match event.code {
                 KeyCode::Char('q') => {
                     disable_raw_mode()?;
                     terminal.show_cursor()?;
@@ -296,19 +372,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     break;
                 }
                 KeyCode::Char(' ') => {
-                    if should_play == true {
-                        should_play = false;
-                    } else {
-                        should_play = true;
-                    }
+                    should_play = !should_play;
+                }
+                KeyCode::Char('i') => {
+                    should_play = false;
+                    mode = Mode::Insert;
+                }
+                KeyCode::Enter => {
+                    should_play = true;
+                    mode = Mode::Play;
+
+                    world.alive = world.input.clone();
+                }
+                KeyCode::Char('d') => {
+                    should_play = true;
+                    mode = Mode::Play;
+                    world = World::default();
                 }
                 _ => {}
             },
+            Event::MouseInput(pos) => {
+                if pos.0 as i32 - (view.top() as i32 + 1) < 0
+                    || pos.0 as i32 + (view.width as i32 - 1) < 0
+                    || pos.1 as i32 - (view.left() as i32 + 1) < 0
+                    || pos.1 as i32 - (view.height as i32 - 1) < 0
+                {
+                    continue;
+                }
+                world
+                    .input
+                    .push((pos.0 - (view.top() + 1), pos.1 - (view.left() + 1)));
+            }
             Event::Tick => {}
         }
-
-        world.next_day();
-        world.remove_not_in_world();
     }
+
+    execute!(terminal.backend_mut(), DisableMouseCapture)?;
+    terminal.show_cursor()?;
+    terminal.clear()?;
     Ok(())
 }
