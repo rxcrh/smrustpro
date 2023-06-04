@@ -39,62 +39,52 @@ struct World {
 pub mod defaults;
 
 impl World {
-    fn get_input_grid(&self) -> Vec<Spans> {
+    fn width(self, w: u16) -> Self {
+        Self {
+            width: w,
+            height: self.height,
+            alive: self.alive,
+        }
+    }
+    fn height(self, h: u16) -> Self {
+        Self {
+            width: self.width,
+            height: h,
+            alive: self.alive,
+        }
+    }
+
+    fn get_grid(&self, mode: &Mode, height: u16, width: u16) -> Vec<Spans> {
         let mut spans = vec![];
 
-        for row in 0..self.height - 2 {
+        for row in 0..height {
             spans.push(vec![Spans::from({
                 let mut cols = vec![];
-                for col in 0..self.width - 2 {
+                for col in 0..width {
                     cols.push({
                         if self.alive.iter().any(|&x| x == (row, col)) {
-                            Span::styled("█", Style::default().fg(Color::Green))
+                            Span::styled(
+                                "█",
+                                Style::default().fg({
+                                    match mode {
+                                        Mode::Insert => Color::Green,
+                                        Mode::Play => Color::Red,
+                                    }
+                                }),
+                            )
                         } else {
-                            Span::styled(".", Style::default())
+                            match mode {
+                                Mode::Insert => Span::raw("."),
+                                Mode::Play => Span::styled(
+                                    "█",
+                                    Style::default().add_modifier(Modifier::REVERSED),
+                                ),
+                            }
                         }
                     });
                 }
                 cols
             })])
-        }
-        return spans.into_iter().flatten().collect();
-    }
-
-    fn get_grid(&self, height: u16, width: u16) -> Vec<Spans> {
-        let mut spans = vec![];
-
-        let row_height = height / self.height as u16;
-        let col_width = width / self.width as u16;
-
-        for row in 0..self.height {
-            spans.push(vec![
-                Spans::from(
-                    vec![{
-                        let mut cols = vec![];
-                        for col in 0..self.width {
-                            cols.push(vec![
-                                {
-                                    if self.alive.iter().any(|&x| x == (row, col)) {
-                                        Span::styled("█", Style::default().fg(Color::Green))
-                                    } else {
-                                        Span::styled(".", Style::default())
-                                        /*Span::styled(
-                                            "█",
-                                            Style::default().add_modifier(Modifier::REVERSED),
-                                        )*/
-                                    }
-                                };
-                                col_width as usize
-                            ]);
-                        }
-                        cols.into_iter().flatten().collect::<Vec<Span>>()
-                    }]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<Span>>()
-                );
-                row_height as usize
-            ])
         }
         return spans.into_iter().flatten().collect();
     }
@@ -207,81 +197,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
-    let mut should_play = true;
+    let mut should_play = false;
     let mut mode = Mode::Insert;
-    let mut view = Rect::default();
-    let mut world = World::default();
+    let mut size = terminal.size()?;
+    let mut world = World::default().width(size.width).height(size.height);
 
     loop {
-        match mode {
-            Mode::Play => {
-                if should_play == true {
-                    terminal.draw(|f| {
-                        let size = f.size();
-
-                        let block_height = size.height - 2;
-                        let block_width = size.width - 2;
-
-                        let vertical_remainder = block_height % world.height;
-                        let horizontal_remainder = block_width % world.width;
-
-                        let world_grided = world.get_grid(
-                            block_height - vertical_remainder,
-                            block_width - horizontal_remainder,
-                        );
-
-                        let chunks = Layout::default()
-                            .vertical_margin(vertical_remainder / 2)
-                            .horizontal_margin(horizontal_remainder / 2)
-                            .constraints([Constraint::Length(block_width)].as_ref())
-                            .split(size);
-
-                        let world_block = Paragraph::new(world_grided)
-                            .block(
-                                Block::default()
-                                    .title("Conways - Game of Life")
-                                    .borders(Borders::ALL),
-                            )
-                            .wrap(Wrap { trim: true });
-
-                        if !world.alive.is_empty() {
-                            view = chunks[0];
-                            f.render_widget(world_block, chunks[0]);
-                        } else {
-                            mode = Mode::Insert;
-                            should_play = false;
-                        }
-                        world.next_day();
-                        world.remove_not_in_world();
-                    })?;
-                }
-            }
-
-            Mode::Insert => {
-                terminal.draw(|f| {
-                    let size = f.size();
-
-                    let grided_input = world.get_input_grid();
-
-                    let chunks = Layout::default()
-                        .vertical_margin(size.height / 2 - world.height / 2)
-                        .horizontal_margin(size.width / 2 - world.width / 2)
-                        .constraints([Constraint::Length(world.width)].as_ref())
-                        .split(size);
-
-                    let input_block = Paragraph::new(grided_input)
-                        .block(
-                            Block::default()
-                                .title("Editor - Game of Life")
-                                .borders(Borders::ALL),
-                        )
-                        .wrap(Wrap { trim: true });
-
-                    view = chunks[0];
-                    f.render_widget(input_block, chunks[0]);
-                })?;
-            }
+        if should_play == true {
+            world.next_day();
+            world.remove_not_in_world();
         }
+
+        terminal.draw(|f| {
+            size = f.size();
+
+            let world_grided = world.get_grid(&mode, size.height-2, size.width-2);
+
+            let world_block = Paragraph::new(world_grided)
+                .block(
+                    Block::default()
+                        .title({
+                            match mode {
+                                Mode::Insert => "Editor - Game of Life",
+                                Mode::Play => "Conways - Game of Life",
+                            }
+                        })
+                        .borders(Borders::ALL),
+                )
+                .wrap(Wrap { trim: true });
+
+            if world.alive.is_empty() {
+                mode = Mode::Insert;
+                should_play = false;
+            }
+            f.render_widget(world_block, size);
+        })?;
 
         match rx.recv()? {
             Event::KeyInput(event) => match event.code {
@@ -291,20 +241,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     terminal.clear()?;
                     break;
                 }
+                KeyCode::Delete => {
+                    world.alive.clear();
+                }
                 KeyCode::Char(' ') => {
                     should_play = !should_play;
                 }
                 KeyCode::Char('i') => {
                     should_play = false;
                     mode = Mode::Insert;
-
-                    //world.buffer = world.alive.clone();
                 }
                 KeyCode::Enter => {
                     should_play = true;
                     mode = Mode::Play;
-
-                    //world.alive = world.buffer.clone();
                 }
                 KeyCode::Char('1') => {
                     should_play = true;
@@ -314,14 +263,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 _ => {}
             },
             Event::LeftClick(pos) => {
-                if pos.0 as i32 - (view.top() as i32 + 1) < 0
-                    || pos.0 as i32 - (view.top() as i32 + world.height as i32) + 2 > 0
-                    || pos.1 as i32 - (view.left() as i32 + 1) < 0
-                    || pos.1 as i32 - (view.left() as i32 + world.width as i32) + 2 > 0
+                if pos.0 as i32 - 1 < 0
+                    || pos.0 as i32 - size.bottom() as i32 > 0
+                    || pos.1 as i32 + 1 < 0
+                    || pos.1 as i32 - size.right() as i32 > 0
                 {
                     continue;
                 }
-                let position = (pos.0 - (view.top() + 1), pos.1 - (view.left() + 1));
+                let position = (pos.0 - 1, pos.1 - 1);
                 if !world
                     .alive
                     .iter()

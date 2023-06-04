@@ -3,16 +3,16 @@ use super::World;
 impl World {
     pub fn default() -> Self {
         Self {
-            width: 42,
-            height: 22,
+            width: 0,
+            height: 0,
             alive: vec![],
         }
     }
 
     pub fn pulsar() -> Self {
         Self {
-            width: 42,
-            height: 22,
+            width: 0,
+            height: 0,
             alive: vec![
                 (9, 18),
                 (9, 17),
