@@ -25,6 +25,20 @@ struct World {
     alive: Vec<(u16, u16)>,
 }
 
+impl Default for World {
+    fn default() -> Self {
+        Self {
+            width: 41,
+            height: 21,
+            alive: vec![
+                (9,20),
+                (10,20),
+                (11,20),
+            ]
+        }
+    }
+}
+
 impl World {
     fn get_grid(&self, height: u16, width: u16) -> Vec<Spans> {
         let mut spans = vec![];
@@ -41,7 +55,7 @@ impl World {
                             cols.push(vec![
                                 {
                                     if self.alive.iter().any(|&x| x == (row, col)) {
-                                        Span::raw("#")
+                                        Span::raw("█")
                                     } else {
                                         Span::raw(".")
                                     }
@@ -62,22 +76,26 @@ impl World {
     }
 
     fn next_day(&mut self) {
-        let alive_as_matrix = vec![vec![0; self.width as usize]; self.height as usize];
+        let mut alive_as_matrix = vec![vec![0; self.width as usize]; self.height as usize];
+        for alive in self.alive.iter() {
+            alive_as_matrix[alive.0 as usize][alive.1 as usize] = 1;
+        }
 
         for row in 0..self.height {
             for col in 0..self.width {
-                let row_idx = row as usize;
-                let col_idx = col as usize; 
+                let row = row as usize;
+                let col = col as usize;
 
-                if alive_as_matrix[row_idx][col_idx] == 0
+                if alive_as_matrix[row][col] == 0
                     && get_num_neighbours(&alive_as_matrix, row, col) == 3
                 {
-                    self.alive.push((row, col));
-                } else if alive_as_matrix[row_idx][col_idx] == 1
+                    self.alive.push((row as u16, col as u16));
+                } else if alive_as_matrix[row][col] == 1
                     && get_num_neighbours(&alive_as_matrix, row, col) != 2
                     && get_num_neighbours(&alive_as_matrix, row, col) != 3
                 {
-                    self.alive.retain(|&x| x.0 != row && x.1 != col);
+                    self.alive
+                        .retain(|&x| x.0 != row as u16 || x.1 != col as u16);
                 }
             }
         }
@@ -89,8 +107,37 @@ impl World {
     }
 }
 
-fn get_num_neighbours(m: &Vec<Vec<u32>>, row: u16, col: u16) -> u32 {
-    2
+fn get_num_neighbours(m: &Vec<Vec<u32>>, i: usize, j: usize) -> u32 {
+    let mut num_neighbours = 0;
+    if is_in_bounds(i as i32 - 1, j as i32 - 1, m.len(), m[0].len()) && m[i - 1][j - 1] == 1 {
+        num_neighbours += 1
+    }
+    if is_in_bounds(i as i32 - 1, j as i32, m.len(), m[0].len()) && m[i - 1][j] == 1 {
+        num_neighbours += 1
+    }
+    if is_in_bounds(i as i32 - 1, j as i32 + 1, m.len(), m[0].len()) && m[i - 1][j + 1] == 1 {
+        num_neighbours += 1
+    }
+    if is_in_bounds(i as i32, j as i32 - 1, m.len(), m[0].len()) && m[i][j - 1] == 1 {
+        num_neighbours += 1
+    }
+    if is_in_bounds(i as i32, j as i32 + 1, m.len(), m[0].len()) && m[i][j + 1] == 1 {
+        num_neighbours += 1
+    }
+    if is_in_bounds(i as i32 + 1, j as i32 - 1, m.len(), m[0].len()) && m[i + 1][j - 1] == 1 {
+        num_neighbours += 1
+    }
+    if is_in_bounds(i as i32 + 1, j as i32, m.len(), m[0].len()) && m[i + 1][j] == 1 {
+        num_neighbours += 1
+    }
+    if is_in_bounds(i as i32 + 1, j as i32 + 1, m.len(), m[0].len()) && m[i + 1][j + 1] == 1 {
+        num_neighbours += 1
+    }
+    num_neighbours
+}
+
+fn is_in_bounds(i: i32, j: i32, i_len: usize, j_len: usize) -> bool {
+  i >= 0 && i < i_len as i32 && j >= 0 && j < j_len as i32
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -125,17 +172,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.clear()?;
 
     let mut should_play = true;
-    #[allow(unused_mut)]
-    let mut world = World {
-        width: 30,
-        height: 20,
-        alive: vec![(0, 0), (10, 10), (4, 5), (19, 29)],
-    };
+    let mut world = World::default(); 
 
     loop {
         if should_play == true {
-            world.next_day();
-            world.remove_not_in_world();
 
             terminal.draw(|f| {
                 let size = f.size();
@@ -202,6 +242,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 KeyCode::Char('q') => {
                     disable_raw_mode()?;
                     terminal.show_cursor()?;
+                    terminal.clear()?;
                     break;
                 }
                 KeyCode::Char(' ') => {
@@ -215,6 +256,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
             Event::Tick => {}
         }
+        
+        world.next_day();
+        world.remove_not_in_world();
     }
     Ok(())
 }
