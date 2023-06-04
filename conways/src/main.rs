@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use tui::{
     backend::CrosstermBackend,
     layout::*,
+    style::*,
     text::{Span, Spans},
     widgets::{Block, Borders, Paragraph, Wrap},
     Terminal,
@@ -33,62 +34,55 @@ impl Default for World {
             width: 41,
             height: 21,
             alive: vec![
-                (9,18),
-                (9,17),
-                (9,16),
-                (9,22),
-                (9,23),
-                (9,24),
-
-                (11,18),
-                (11,17),
-                (11,16),
-                (11,22),
-                (11,23),
-                (11,24),
-
-                (8,19),
-                (7,19),
-                (6,19),
-                (12,19),
-                (13,19),
-                (14,19),
-
-                (8,21),
-                (7,21),
-                (6,21),
-                (12,21),
-                (13,21),
-                (14,21),
-                
-                (4,16),
-                (4,17),
-                (4,18),
-                (4,22),
-                (4,23),
-                (4,24),
-                
-                (16,16),
-                (16,17),
-                (16,18),
-                (16,22),
-                (16,23),
-                (16,24),
-
-                (8,14),
-                (7,14),
-                (6,14),
-                (12,14),
-                (13,14),
-                (14,14),
-
-                (8,26),
-                (7,26),
-                (6,26),
-                (12,26),
-                (13,26),
-                (14,26),
-            ]
+                (9, 18),
+                (9, 17),
+                (9, 16),
+                (9, 22),
+                (9, 23),
+                (9, 24),
+                (11, 18),
+                (11, 17),
+                (11, 16),
+                (11, 22),
+                (11, 23),
+                (11, 24),
+                (8, 19),
+                (7, 19),
+                (6, 19),
+                (12, 19),
+                (13, 19),
+                (14, 19),
+                (8, 21),
+                (7, 21),
+                (6, 21),
+                (12, 21),
+                (13, 21),
+                (14, 21),
+                (4, 16),
+                (4, 17),
+                (4, 18),
+                (4, 22),
+                (4, 23),
+                (4, 24),
+                (16, 16),
+                (16, 17),
+                (16, 18),
+                (16, 22),
+                (16, 23),
+                (16, 24),
+                (8, 14),
+                (7, 14),
+                (6, 14),
+                (12, 14),
+                (13, 14),
+                (14, 14),
+                (8, 26),
+                (7, 26),
+                (6, 26),
+                (12, 26),
+                (13, 26),
+                (14, 26),
+            ],
         }
     }
 }
@@ -111,7 +105,10 @@ impl World {
                                     if self.alive.iter().any(|&x| x == (row, col)) {
                                         Span::raw("█")
                                     } else {
-                                        Span::raw(".")
+                                        Span::styled(
+                                            "█",
+                                            Style::default().add_modifier(Modifier::REVERSED),
+                                        )
                                     }
                                 };
                                 col_width as usize
@@ -191,7 +188,7 @@ fn get_num_neighbours(m: &Vec<Vec<u32>>, i: usize, j: usize) -> u32 {
 }
 
 fn is_in_bounds(i: i32, j: i32, i_len: usize, j_len: usize) -> bool {
-  i >= 0 && i < i_len as i32 && j >= 0 && j < j_len as i32
+    i >= 0 && i < i_len as i32 && j >= 0 && j < j_len as i32
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -226,11 +223,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.clear()?;
 
     let mut should_play = true;
-    let mut world = World::default(); 
+    let mut world = World::default();
 
     loop {
         if should_play == true {
-
             terminal.draw(|f| {
                 let size = f.size();
 
@@ -310,7 +306,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
             Event::Tick => {}
         }
-        
+
         world.next_day();
         world.remove_not_in_world();
     }
