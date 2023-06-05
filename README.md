@@ -7,7 +7,7 @@ A repository slowly filling up with little rust projects some following a certai
 ### Clone Repository:
 ```console
 $ git clone git@github.com:ohnchen/smrustpro.git
-$ cd logic.sim
+$ cd smrustpro/
 ```
 
 ## Built With
