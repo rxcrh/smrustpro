@@ -1,10 +1,12 @@
+use std::error;
+
+use rusqlite::Connection;
 use tui::{
-    text::{Spans, Span},
-    style::{Style, Color, Modifier}
+    style::{Color, Modifier, Style},
+    text::{Span, Spans},
 };
 
 use crate::Mode;
-
 
 pub struct World {
     pub width: u16,
@@ -66,12 +68,14 @@ impl World {
     pub fn next_day(&mut self) {
         let alive_as_matrix = self.get_alives_as_matrix_with_puffer();
 
-        for row in 1..self.height+1 {
-            for col in 1..self.width+1 {
+        for row in 1..self.height + 1 {
+            for col in 1..self.width + 1 {
                 let row = row as usize;
                 let col = col as usize;
 
-                if alive_as_matrix[row][col] == 0 && self.get_num_neighbours(&alive_as_matrix, row, col) == 3 {
+                if alive_as_matrix[row][col] == 0
+                    && self.get_num_neighbours(&alive_as_matrix, row, col) == 3
+                {
                     self.alive.push((row as u16, col as u16));
                 } else if alive_as_matrix[row][col] == 1
                     && self.get_num_neighbours(&alive_as_matrix, row, col) != 2
@@ -86,8 +90,20 @@ impl World {
         self.remove_not_in_world();
     }
 
-    pub fn save_current_state(&self)  {
+    pub fn save_current_state(&self, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+        conn.execute(
+            "INSERT INTO templates (width, height, alive) VALUES (?1, ?2, ?3)",
+            (&self.width, &self.height, &self.alive_to_string()),
+        )?;
+        Ok(())
+    }
 
+    fn alive_to_string(&self) -> String {
+        self.alive
+            .iter()
+            .map(|(x, y)| format!("{},{}", x.to_string(), y.to_string()))
+            .collect::<Vec<String>>()
+            .join(":")
     }
 
     fn get_num_neighbours(&self, m: &Vec<Vec<u32>>, row: usize, col: usize) -> u16 {
@@ -132,5 +148,4 @@ impl World {
         self.alive
             .retain(|&x| x.0 < self.height && x.1 < self.width);
     }
-
 }

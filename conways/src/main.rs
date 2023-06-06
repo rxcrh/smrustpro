@@ -9,6 +9,7 @@ use crossterm::{
 use std::io;
 use std::sync::mpsc;
 use std::thread;
+use rusqlite::{Connection};
 use std::time::{Duration, Instant};
 use tui::{
     backend::CrosstermBackend,
@@ -28,7 +29,7 @@ enum Event<Key, Pos> {
 }
 
 #[derive(PartialEq)]
-enum Mode {
+pub enum Mode {
     Insert,
     Play,
 }
@@ -43,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             let timeout = tick_rate
                 .checked_sub(last_tick.elapsed())
-                .unwrap_or_else(|| Duration::from_millis(55000));
+                .unwrap_or_else(|| Duration::from_secs(0));
 
             if event::poll(timeout).expect("poll works") {
                 match event::read().expect("can read events") {
@@ -68,6 +69,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    let conn = Connection::open("templates.db")?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS templates (
+           id integer primary key,
+           width integer not null,
+           height integer not null,
+           alive text not null
+        )",
+        [],
+    )?;
+    
     let mut stdout = io::stdout();
 
     execute!(stdout, EnableMouseCapture)?;
@@ -131,7 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 KeyCode::Char('s') => {
                     if mode == Mode::Insert { 
-                        world.save_current_state();
+                        world.save_current_state(&conn)?;
                     }  
                 }
                 KeyCode::Enter => {
