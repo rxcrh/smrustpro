@@ -6,14 +6,14 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
+use rusqlite::Connection;
 use std::io;
 use std::sync::mpsc;
 use std::thread;
-use rusqlite::{Connection};
 use std::time::{Duration, Instant};
 use tui::{
     backend::CrosstermBackend,
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Terminal,
 };
 
@@ -28,10 +28,12 @@ enum Event<Key, Pos> {
     Tick,
 }
 
+// Keeps track of what the user wants to do
 #[derive(PartialEq)]
 pub enum Mode {
     Insert,
     Play,
+    Load,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -79,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )",
         [],
     )?;
-    
+
     let mut stdout = io::stdout();
 
     execute!(stdout, EnableMouseCapture)?;
@@ -92,6 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut mode = Mode::Insert;
     let mut size = terminal.size()?;
     let mut world = World::default().width(size.width).height(size.height);
+    let mut loaded_list: Vec<ListItem> = vec![];
 
     loop {
         if should_play == true {
@@ -101,26 +104,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|f| {
             size = f.size();
 
-            let world_grided = world.get_grid(&mode, size.height - 2, size.width - 2);
-
-            let world_block = Paragraph::new(world_grided)
-                .block(
-                    Block::default()
-                        .title({
-                            match mode {
-                                Mode::Insert => "Editor - Game of Life",
-                                Mode::Play => "Conways - Game of Life",
-                            }
-                        })
-                        .borders(Borders::ALL),
-                )
-                .wrap(Wrap { trim: true });
-
-            if world.alive.is_empty() {
+            if world.alive.is_empty() && mode != Mode::Load {
                 mode = Mode::Insert;
                 should_play = false;
             }
-            f.render_widget(world_block, size);
+
+            match mode {
+                Mode::Load => {
+
+                    let load_list = List::new(loaded_list.clone()).block(
+                        Block::default()
+                            .title("Load Templates")
+                            .borders(Borders::ALL),
+                    );
+                    f.render_widget(load_list, size);
+                }
+                Mode::Insert | Mode::Play  => {
+                    let world_grided = world.get_grid(&mode, size.height - 2, size.width - 2);
+                    let world_block = Paragraph::new(world_grided)
+                        .block(
+                            Block::default()
+                                .title({
+                                    match mode {
+                                        Mode::Insert => "Editor - Game of Life",
+                                        Mode::Play => "Conways - Game of Life",
+                                        _ => "",
+                                    }
+                                })
+                                .borders(Borders::ALL),
+                        )
+                        .wrap(Wrap { trim: true });
+
+                    f.render_widget(world_block, size);
+                }
+            }
         })?;
 
         match rx.recv()? {
@@ -131,9 +148,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     terminal.clear()?;
                     break;
                 }
-                KeyCode::Delete => {
-                    world.alive.clear();
-                }
                 KeyCode::Char(' ') => {
                     should_play = !should_play;
                 }
@@ -142,13 +156,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     mode = Mode::Insert;
                 }
                 KeyCode::Char('s') => {
-                    if mode == Mode::Insert { 
+                    if mode == Mode::Insert {
                         world.save_current_state(&conn)?;
-                    }  
+                    }
+                }
+                KeyCode::Char('l') => {
+                    should_play = false;
+                    mode = Mode::Load;
+                    loaded_list = world
+                        .load_alive(&conn)
+                        .unwrap()
+                        .iter()
+                        .map(|i| ListItem::new(i.to_string()))
+                        .collect::<Vec<ListItem>>();
                 }
                 KeyCode::Enter => {
                     should_play = true;
                     mode = Mode::Play;
+                }
+                KeyCode::Delete => {
+                    world.alive.clear();
                 }
                 KeyCode::Char('1') => {
                     should_play = true;

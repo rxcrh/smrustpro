@@ -1,11 +1,9 @@
-use std::error;
-
-use rusqlite::Connection;
+use fallible_iterator::FallibleIterator;
+use rusqlite::{Connection, Result};
 use tui::{
     style::{Color, Modifier, Style},
     text::{Span, Spans},
 };
-
 use crate::Mode;
 
 pub struct World {
@@ -44,14 +42,14 @@ impl World {
                                 Style::default().fg({
                                     match mode {
                                         Mode::Insert => Color::Green,
-                                        Mode::Play => Color::Red,
+                                        _ => Color::Red,
                                     }
                                 }),
                             )
                         } else {
                             match mode {
                                 Mode::Insert => Span::raw("."),
-                                Mode::Play => Span::styled(
+                                _ => Span::styled(
                                     "█",
                                     Style::default().add_modifier(Modifier::REVERSED),
                                 ),
@@ -88,6 +86,17 @@ impl World {
         }
 
         self.remove_not_in_world();
+    }
+
+    pub fn load_alive(&self, conn: &Connection) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let mut stmt = conn.prepare("SELECT alive FROM templates")?;
+        let rows = stmt.query_map([], |row| row.get(0))?;
+    
+        let mut entrys = Vec::new();
+        for entry in rows {
+            entrys.push(entry?);
+        }
+        Ok(entrys)
     }
 
     pub fn save_current_state(&self, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
