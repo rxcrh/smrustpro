@@ -89,7 +89,7 @@ impl World {
     }
 
     pub fn load_alive(&self, conn: &Connection) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        let mut stmt = conn.prepare("SELECT alive FROM templates")?;
+        let mut stmt = conn.prepare("SELECT name FROM templates")?;
         let rows = stmt.query_map([], |row| row.get(0))?;
     
         let mut entrys = Vec::new();
