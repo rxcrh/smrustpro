@@ -16,6 +16,8 @@ use tui::{
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Terminal,
 };
+use tui_input::backend::crossterm::EventHandler;
+use tui_input::Input;
 
 mod defaults;
 mod world;
@@ -34,6 +36,7 @@ pub enum Mode {
     Insert,
     Play,
     Load,
+    Save,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -75,6 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS templates (
            id integer primary key,
+           name text not null,
            width integer not null,
            height integer not null,
            alive text not null
@@ -86,12 +90,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     execute!(stdout, EnableMouseCapture)?;
 
+    let mut input: Input = "".into();
+
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
     let mut should_play = false;
     let mut mode = Mode::Insert;
+
     let mut size = terminal.size()?;
     let mut world = World::default().width(size.width).height(size.height);
     let mut loaded_list: Vec<ListItem> = vec![];
@@ -111,7 +118,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             match mode {
                 Mode::Load => {
-
                     let load_list = List::new(loaded_list.clone()).block(
                         Block::default()
                             .title("Load Templates")
@@ -119,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     );
                     f.render_widget(load_list, size);
                 }
-                Mode::Insert | Mode::Play  => {
+                Mode::Insert | Mode::Play => {
                     let world_grided = world.get_grid(&mode, size.height - 2, size.width - 2);
                     let world_block = Paragraph::new(world_grided)
                         .block(
@@ -137,52 +143,65 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     f.render_widget(world_block, size);
                 }
+                Mode::Save => {
+                    let input_block =
+                        Paragraph::new(input.value()).block(Block::default().borders(Borders::ALL));
+                    f.render_widget(input_block, size);
+                }
             }
         })?;
 
         match rx.recv()? {
-            Event::KeyInput(event) => match event.code {
-                KeyCode::Char('q') => {
-                    disable_raw_mode()?;
-                    terminal.show_cursor()?;
-                    terminal.clear()?;
-                    break;
-                }
-                KeyCode::Char(' ') => {
-                    should_play = !should_play;
-                }
-                KeyCode::Char('i') => {
-                    should_play = false;
-                    mode = Mode::Insert;
-                }
-                KeyCode::Char('s') => {
-                    if mode == Mode::Insert {
-                        world.save_current_state(&conn)?;
+            Event::KeyInput(event) => match mode {
+                Mode::Save => match event.code {
+                    KeyCode::Enter => {
+                        world.save_current_state(&conn, input.value().to_owned())?;
+                        input.reset();
+                        mode = Mode::Insert;
+                    },
+                    _ => {
+                        input.handle_event(&CEvent::Key(event));
                     }
                 }
-                KeyCode::Char('l') => {
-                    should_play = false;
-                    mode = Mode::Load;
-                    loaded_list = world
-                        .load_alive(&conn)
-                        .unwrap()
-                        .iter()
-                        .map(|i| ListItem::new(i.to_string()))
-                        .collect::<Vec<ListItem>>();
-                }
-                KeyCode::Enter => {
-                    should_play = true;
-                    mode = Mode::Play;
-                }
-                KeyCode::Delete => {
-                    world.alive.clear();
-                }
-                KeyCode::Char('1') => {
-                    should_play = true;
-                    mode = Mode::Play;
-                    world.alive = World::pulsar().alive;
-                }
-                _ => {}
+                _ => match event.code {
+                    KeyCode::Char('q') => {
+                        disable_raw_mode()?;
+                        terminal.show_cursor()?;
+                        terminal.clear()?;
+                        break;
+                    }
+                    KeyCode::Char(' ') => {
+                        should_play = !should_play;
+                    }
+                    KeyCode::Char('i') => {
+                        should_play = false;
+                        mode = Mode::Insert;
+                    }
+                    KeyCode::Char('s') => mode = Mode::Save,
+                    KeyCode::Char('l') => {
+                        should_play = false;
+                        mode = Mode::Load;
+                        loaded_list = world
+                            .load_alive(&conn)
+                            .unwrap()
+                            .iter()
+                            .map(|i| ListItem::new(i.to_string()))
+                            .collect::<Vec<ListItem>>();
+                    }
+                    KeyCode::Enter => {
+                        should_play = true;
+                        mode = Mode::Play;
+                    }
+                    KeyCode::Delete => {
+                        world.alive.clear();
+                    }
+                    KeyCode::Char('1') => {
+                        should_play = true;
+                        mode = Mode::Play;
+                        world.alive = World::pulsar().alive;
+                    }
+                    _ => {}
+                },
             },
             Event::LeftClick(pos) => {
                 if pos.0 as i32 - 1 < 0

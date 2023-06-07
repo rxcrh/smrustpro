@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 tui = "0.19"
-crossterm = "0.25"
+tui-input = "0.7.1"
+crossterm = "0.26.1"
 rusqlite = "0.29.0"
 fallible-iterator = "0.3.0"

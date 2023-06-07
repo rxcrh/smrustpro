@@ -99,10 +99,10 @@ impl World {
         Ok(entrys)
     }
 
-    pub fn save_current_state(&self, conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_current_state(&self, conn: &Connection, name: String) -> Result<(), Box<dyn std::error::Error>> {
         conn.execute(
-            "INSERT INTO templates (width, height, alive) VALUES (?1, ?2, ?3)",
-            (&self.width, &self.height, &self.alive_to_string()),
+            "INSERT INTO templates (name, width, height, alive) VALUES (?1, ?2, ?3, ?4)",
+            (name, &self.width, &self.height, &self.alive_to_string()),
         )?;
         Ok(())
     }
