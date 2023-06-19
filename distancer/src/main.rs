@@ -27,9 +27,11 @@ impl eframe::App for MyApp {
                 ui.heading("JO");
             })
             .response;
+        
+        let painter = egui::Painter::new(ctx.clone(), resp.layer_id, resp.rect);
 
         if let Some(pos) = resp.hover_pos() {
-            eprintln!("{} {}", pos.x, pos.y);
+            painter.line_segment([egui::Pos2::default(), pos], egui::Stroke {width: 2.0, color: egui::Color32::WHITE});
         }
     }
 }
