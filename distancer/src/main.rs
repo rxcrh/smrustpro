@@ -12,11 +12,15 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-struct MyApp {}
+struct MyApp {
+    pos: egui::Pos2,
+}
 
 impl Default for MyApp {
     fn default() -> Self {
-        Self {}
+        Self {
+            pos: egui::Pos2::default(),
+        }
     }
 }
 
@@ -27,11 +31,28 @@ impl eframe::App for MyApp {
                 ui.heading("JO");
             })
             .response;
-        
+
         let painter = egui::Painter::new(ctx.clone(), resp.layer_id, resp.rect);
 
         if let Some(pos) = resp.hover_pos() {
-            painter.line_segment([egui::Pos2::default(), pos], egui::Stroke {width: 2.0, color: egui::Color32::WHITE});
+            painter.line_segment(
+                [self.pos, pos],
+                egui::Stroke {
+                    width: 2.0,
+                    color: egui::Color32::WHITE,
+                },
+            );
         }
+
+        if self.pos.x < resp.rect.width() && self.pos.y < resp.rect.height() {
+            self.pos = egui::Pos2 {
+                x: self.pos.x + 1.,
+                y: self.pos.y + 1.,
+            };
+        } else {
+            self.pos = egui::Pos2::default();
+        }
+
+        ctx.request_repaint();
     }
 }
