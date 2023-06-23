@@ -16,21 +16,21 @@ impl Application {
         }
     }
 
-    fn move_towards_nearest(&mut self) {
+    fn move_towards_furthest(&mut self) {
         let distances = self
             .directions
             .iter()
             .map(|&x| self.pos.distance(x))
             .collect::<Vec<f32>>();
-        let nearest_point_ind = distances
+        let furthest_id = distances
             .iter()
             .zip(0..self.directions.len())
-            .min_by_key(|y| y.1)
+            .max_by_key(|y| y.1)
             .unwrap()
             .1;
-        let nearest_point = self.directions[nearest_point_ind];
+        let furthest_point = self.directions[furthest_id];
 
-        self.pos = nearest_point.lerp(self.pos, 0.99);
+        self.pos = furthest_point.lerp(self.pos, 0.99);
     }
 }
 
@@ -75,7 +75,7 @@ impl eframe::App for Application {
             )
         });
 
-        self.move_towards_nearest();
+        self.move_towards_furthest();
         ctx.request_repaint();
     }
 }
