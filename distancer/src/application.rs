@@ -55,7 +55,10 @@ impl eframe::App for Application {
         let painter = Painter::new(ctx.clone(), resp.layer_id, resp.rect);
 
         if self.first {
-            self.directions = vec![self.generate_rand_pos(resp.rect.width(), resp.rect.height()); 10];
+            for _ in 0..10 {
+                let new_entry = self.generate_rand_pos(resp.rect.width(), resp.rect.height());
+                self.directions.push(new_entry);
+            }
             self.first = false;
         }
 
