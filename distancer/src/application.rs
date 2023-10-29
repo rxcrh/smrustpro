@@ -1,12 +1,19 @@
 use egui::{CentralPanel, Color32, Painter, Pos2, Stroke};
 use rand::prelude::*;
 
-pub(crate) struct Application {
-    first: bool,
-    pos: Pos2,
-    directions: Vec<Pos2>,
-    rng: rand::rngs::ThreadRng,
+pub(crate) enum Mode {
+    Mouse,
+    Furthest,
 }
+
+pub(crate) struct Application {
+    pub mode: Mode,
+    pub first: bool,
+    pub pos: Pos2,
+    pub directions: Vec<Pos2>,
+    pub rng: rand::rngs::ThreadRng,
+}
+
 
 impl Application {
     fn generate_rand_pos(&mut self, maxwidth: f32, maxheight: f32) -> Pos2 {
@@ -38,6 +45,7 @@ impl Default for Application {
     fn default() -> Self {
         Self {
             first: true,
+            mode: Mode::Mouse,
             pos: Pos2 { x: 0., y: 0. },
             directions: vec![],
             rng: rand::thread_rng(),
@@ -77,8 +85,15 @@ impl eframe::App for Application {
                 },
             )
         });
-
-        self.move_towards_furthest();
+        
+        match self.mode {
+            Mode::Furthest => self.move_towards_furthest(),
+            Mode::Mouse => {
+                if let Some(cursor_pos) = ctx.pointer_latest_pos() {
+                    self.pos = cursor_pos;
+                }            
+            }
+        }
         ctx.request_repaint();
     }
 }
