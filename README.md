@@ -14,10 +14,6 @@ $ cd smrustpro/
 
 - [rust](https://www.rust-lang.org/)
 
-## Future Updates
-
-- [ ] fix all the little bugs
-
 ## Author
 
 **Jona Ohme**

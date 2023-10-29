@@ -20,9 +20,7 @@ fn main() -> Result<()> {
     
     loop {
         terminal.draw(|frame| {
-            let mut area = frame.size();
-            area.width /= 2;
-            area.height /= 2;
+            let area = frame.size();
             frame.render_widget(Paragraph::new("Hello, world!").white().on_blue(), area);
         })?;
 
