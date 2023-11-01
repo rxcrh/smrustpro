@@ -1,40 +1,38 @@
 use crossterm::{
+    execute, queue,
+    cursor,
     event::{self, KeyCode, KeyEventKind},
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    ExecutableCommand,
+    style::Print,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen, ScrollDown},
 };
-use ratatui::{
-    prelude::{CrosstermBackend, Stylize, Terminal},
-    widgets::Paragraph,
+use std::{
+    io::{self, Result, Write},
+    time::Duration,
 };
-use std::io::{stdout, Result};
-
 
 fn main() -> Result<()> {
-    
-    stdout().execute(EnterAlternateScreen)?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
     enable_raw_mode()?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    terminal.clear()?;
 
-    
     loop {
-        terminal.draw(|frame| {
-            let area = frame.size();
-            frame.render_widget(Paragraph::new("Hello, world!").white().on_blue(), area);
-        })?;
-
-        if event::poll(std::time::Duration::from_millis(16))? {
-            if let event::Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
-                    break;
+        if event::poll(Duration::from_millis(150))? {
+            match event::read()? {
+                event::Event::Key(key_event) => {
+                    if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Char('q')
+                    {
+                        break;
+                    }
+                }
+                _ => {
                 }
             }
+            queue!(stdout, cursor::MoveTo(10, 10), Print("fasdf".to_string()))?;
         }
+        stdout.flush()?;
     }
 
-
-    stdout().execute(LeaveAlternateScreen)?;
+    execute!(stdout, LeaveAlternateScreen)?;
     disable_raw_mode()?;
     Ok(())
 }
