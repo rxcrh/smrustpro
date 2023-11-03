@@ -13,8 +13,8 @@ use std::{
 };
 
 macro_rules! run {
-    ($buffer:ident $(, $command:ident($($tokens:tt)*))+) => {
-        queue!($buffer $(, $command($($tokens)*))*).map_err(|err| {
+    ($($command:expr) ,*) => {
+        queue!(io::stdout() $(, $command)*).map_err(|err| {
             eprintln!("[ERROR] Something went wrong: {err}");
         })
     };
@@ -22,6 +22,7 @@ macro_rules! run {
 
 mod mode;
 mod session;
+mod commands;
 
 fn main() -> Result<()> {
     let mut stdout = io::stdout();
@@ -31,6 +32,7 @@ fn main() -> Result<()> {
     let mut session = session::Session::new();
 
     loop {
+        session.draw_active_mode();
         if event::poll(Duration::from_millis(150))? {
             match event::read()? {
                 event::Event::Key(key_event) => {
@@ -42,7 +44,6 @@ fn main() -> Result<()> {
                 _ => {}
             }
         }
-        session.draw_active_mode();
         stdout.flush()?;
     }
 

@@ -1,5 +1,5 @@
 use crossterm::{
-    cursor::{self, MoveTo},
+    cursor::{self, MoveTo, MoveLeft},
     event::{KeyCode, KeyEvent, KeyEventKind},
     execute, queue,
     style::Print,
@@ -8,6 +8,7 @@ use crossterm::{
 use std::{io, time::Duration};
 
 use crate::mode::Mode;
+use crate::commands;
 
 const EDIT: char = 'e';
 const QUIT: char = 'q';
@@ -29,7 +30,6 @@ impl Session {
     }
 
     pub(crate) fn handle_key_event(&mut self, key_event: KeyEvent) {
-        let mut stdout = io::stdout();
         let KeyEvent {
             code,
             modifiers: _,
@@ -41,12 +41,10 @@ impl Session {
                 if kind == KeyEventKind::Press {
                     match code {
                         KeyCode::Esc => self.mode = Mode::Normal,
-                        KeyCode::Enter => {
-                            let (_, row) = cursor::position().unwrap();
-                            let _ = run!(stdout, MoveTo(0, row + 1));
-                        }
+                        KeyCode::Enter => Self::draw_new_line(),
+                        KeyCode::Backspace => Self::delete_back(),
                         KeyCode::Char(char) => {
-                            let _ = run!(stdout, Print(char.to_string()));
+                            let _ = run!(Print(char.to_string()));
                         }
                         _ => {}
                     }
@@ -62,11 +60,7 @@ impl Session {
                             COMMAND => {
                                 self.mode = Mode::Command;
                                 self.cursor_pos_editor = cursor::position().unwrap();
-                                let _ = execute!(
-                                    stdout,
-                                    MoveTo(0, terminal::size()?.1 - 1),
-                                    Print("!")
-                                );
+                                let _ = run!(MoveTo(0, terminal::size()?.1 - 1), Clear(ClearType::CurrentLine), Print("!"));
                             }
                             _ => {}
                         },
@@ -75,25 +69,38 @@ impl Session {
                 }
             }
             Mode::Command => {
-                let _ = execute!(stdout, Print("a"));
-                
-                std::thread::sleep(Duration::from_secs(1));
+                disable_raw_mode().unwrap();
+                let mut command_buffer = String::new();
+                io::stdin().read_line(&mut command_buffer).unwrap();
+
+                //execute!(io::stdout(), Print(command_buffer.clone())).unwrap();
+    
+                commands::execute_command(command_buffer.into());
+
                 let (x, y) = self.cursor_pos_editor;
-                let _ = execute!(stdout, MoveTo(x, y));
+                let _ = run!(MoveTo(x, y));
                 self.mode = Mode::Normal;
             }
         }
     }
 
     pub(crate) fn draw_active_mode(&self) {
-        let mut stdout = io::stdout();
         let (x, y) = cursor::position().unwrap();
+        // TODO only redraw if mode changed
         let _ = run!(
-            stdout,
             MoveTo(0, terminal::size()?.1 - 2),
             Clear(ClearType::CurrentLine),
             Print(self.mode.stringify()),
             MoveTo(x, y)
         );
+    }
+
+    fn draw_new_line() {
+        let (_, row) = cursor::position().unwrap();
+        let _ = run!(MoveTo(0, row + 1));
+    }
+
+    fn delete_back() {
+        let _ = run!(MoveLeft(1), Print(" "), MoveLeft(1));
     }
 }
